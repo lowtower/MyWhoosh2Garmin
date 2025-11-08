@@ -129,6 +129,7 @@ try:
     )
     from fit_tool.profile.messages.session_message import SessionMessage
     from fit_tool.profile.messages.lap_message import LapMessage
+    from fit_tool.profile.messages.file_id_message import FileIdMessage
 except ImportError as e:
     logger.error(f"Error importing modules: {e}")
 
@@ -371,6 +372,10 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
             if not message.avg_heart_rate:
                 message.avg_heart_rate = calculate_avg(heart_rate_values)
             lap_values, cadence_values, power_values, heart_rate_values = reset_values()
+        if isinstance(message, FileIdMessage):
+            # Override manufacturer/product but keep other fields
+            message.manufacturer = 1
+            message.product = 1836
         builder.add(message)
     builder.build().to_file(str(new_file_path))
     logger.info(f"Cleaned-up file saved as {SCRIPT_DIR}/{new_file_path.name}")
