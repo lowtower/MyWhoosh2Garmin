@@ -235,7 +235,6 @@ def get_backup_path(json_file=json_file_path) -> Path:
         logger.info(f"Backup path saved to {json_file}.")
     return Path(backup_path)
 
-FITFILE_LOCATION = get_fitfile_location()
 BACKUP_FITFILE_LOCATION = get_backup_path()
 
 def get_credentials_for_garmin():
@@ -371,6 +370,8 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
                 message.avg_power = calculate_avg(power_values)
             if not message.avg_heart_rate:
                 message.avg_heart_rate = calculate_avg(heart_rate_values)
+            if not message.avg_speed or message.avg_speed == 0:
+                message.avg_speed = message.total_distance / message.total_timer_time
             lap_values, cadence_values, power_values, heart_rate_values = reset_values()
         if isinstance(message, FileIdMessage):
             # Override manufacturer/product but keep other fields
@@ -386,7 +387,7 @@ def get_most_recent_fit_file(fitfile_location: Path) -> Path:
     Returns the most recent .fit file based 
     on versioning in the filename.
     """
-    fit_files = fitfile_location.glob("MyNewActivity-*.fit")
+    fit_files = fitfile_location.glob("*.fit")
     fit_files = sorted(fit_files, key=lambda f: 
                        tuple(map(int, re.findall(r'(\d+)',
                                                  f.stem.split('-')[-1]))),
@@ -412,13 +413,10 @@ def cleanup_and_save_fit_file(fitfile_location: Path) -> Path:
         Path: The path to the newly saved and cleaned .fit file, 
         or an empty Path if no .fit file is found or if the path is invalid.
     """
-    if not fitfile_location.is_dir():
-        logger.info(f"The specified path is not a directory:"
-                    f"{fitfile_location}.")
-        return Path()
-
-    logger.debug(f"Checking for .fit files in directory: {fitfile_location}.")
-    fit_file = get_most_recent_fit_file(fitfile_location)
+    fit_file = fitfile_location
+    if fitfile_location.is_dir():
+        logger.debug(f"Checking for .fit files in directory: {fitfile_location}.")
+        fit_file = get_most_recent_fit_file(fitfile_location)
 
     if not fit_file:
         logger.info("No .fit files found.")
@@ -466,7 +464,7 @@ def upload_fit_file_to_garmin(new_file_path: Path):
         logger.info("Duplicate activity found on Garmin Connect.")
 
 
-def main():
+def main(file_location: Path):
     """
     Main function to authenticate to Garmin, clean and save the FIT file, 
     and upload it to Garmin.
@@ -474,11 +472,18 @@ def main():
     Returns:
         None
     """
+    logger.info("Starting MyWhoosh2Garmin...")
+    logger.info(f"FIT file location: {file_location}")
     authenticate_to_garmin()
-    new_file_path = cleanup_and_save_fit_file(FITFILE_LOCATION)
+    new_file_path = cleanup_and_save_fit_file(Path(file_location))
     if new_file_path:
         upload_fit_file_to_garmin(new_file_path)
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Upload my whoosh to Garmin')
+    parser.add_argument('--fit-file-location', metavar='path', required=True,
+                        help='the path to the fit file')
+    args = parser.parse_args()
+    main(file_location=args.fit_file_location)
