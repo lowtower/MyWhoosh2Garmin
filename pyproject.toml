@@ -9,6 +9,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["*"]
 
+[tool.setuptools]
+packages = ["myWhoosh2Garmin"]
+
 [project]
 name = "myWhoosh2Garmin"
 version = "0.1"
