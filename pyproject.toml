@@ -1,5 +1,5 @@
 [project]
-name = "mywhoosh2garmin"
+name = "myWhoosh2Garmin"
 version = "0.1"
 description = "Setup MyWhoosh2Garmin"
 readme = "README.md"
@@ -23,7 +23,7 @@ test = [
 ]
 
 [project.scripts]
-mywhoosh2garmin = "mywhoosh2garmin:main"
+mywhoosh2garmin = "myWhoosh2Garmin:main"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
