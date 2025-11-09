@@ -1,9 +1,20 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["myWhoosh2Garmin.py"]
+
 [project]
 name = "myWhoosh2Garmin"
 version = "0.1"
 description = "Setup MyWhoosh2Garmin"
 readme = "README.md"
 license-files = ["LICENSE"]
+authors = ["Lowtower <lowtower@lowtower.de>"]
 # Assume Python version >= 3.11
 requires-python = ">=3.11"
 dependencies = [
