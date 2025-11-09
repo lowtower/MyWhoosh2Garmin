@@ -91,7 +91,7 @@ def install_package(package):
             logger.info(f"Installing missing package: {package}.")
             subprocess.check_call(pip_command + ["install", package])
         except subprocess.CalledProcessError as e:
-            logger.exception(f"Error installing {package}: {e}.")
+            logger.exception(f"Error installing < {package} >: {e}.")
     else:
         logger.debug("pip is not available. Unable to install packages.")
 
@@ -103,19 +103,19 @@ def ensure_packages():
 
     for package in required_packages:
         if package in installed_packages:
-            logger.info(f"Package {package} is already tracked as installed.")
+            logger.info(f"Package < {package} > is already tracked as installed.")
             continue
 
         if not importlib.util.find_spec(package):
-            logger.info(f"Package {package} not found.Attempting to install...")
+            logger.info(f"Package < {package} > not found.Attempting to install...")
             install_package(package)
 
         try:
             __import__(package)
-            logger.info(f"Successfully imported {package}.")
+            logger.info(f"Successfully imported < {package} >.")
             installed_packages.add(package)
         except ModuleNotFoundError:
-            logger.exception(f"Failed to import {package} even after installation.")
+            logger.exception(f"Failed to import < {package} > even after installation.")
 
     save_installed_packages(installed_packages)
 
@@ -190,7 +190,7 @@ def get_fitfile_location() -> Path:
                 return target_path
             else:
                 raise FileNotFoundError(
-                    f"No valid MyWhoosh directory found in {target_path}"
+                    f"No valid MyWhoosh directory found in < {target_path} >."
                 )
         except FileNotFoundError as e:
             logger.exception(str(e))
@@ -407,7 +407,7 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
             message.product = 1836
         builder.add(message)
     builder.build().to_file(str(new_file_path))
-    logger.info(f"Cleaned-up file saved as {SCRIPT_DIR}/{new_file_path.name}")
+    logger.info(f"Cleaned-up file saved as < {SCRIPT_DIR}/{new_file_path.name} >.")
 
 
 def get_fit_files(fitfile_location: Path) -> list:
