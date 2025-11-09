@@ -23,7 +23,7 @@ test = [
 ]
 
 [project.scripts]
-create_poster = "myWhoosh2Garmin:main"
+mywhoosh2garmin = "myWhoosh2Garmin:main"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
