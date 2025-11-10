@@ -6,10 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages]
-find = { where = ["."], include = ["myWhoosh2Garmin"] }
-
-[tool.setuptools]
-py_modules = ["myWhoosh2Garmin"]
+find = { include = ["myWhoosh2Garmin"] }
 
 [project]
 name = "myWhoosh2Garmin"
