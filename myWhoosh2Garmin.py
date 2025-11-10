@@ -41,6 +41,8 @@ FILE_DIALOG_TITLE = "MyWhoosh2Garmin"
 # Fix for https://github.com/JayQueue/MyWhoosh2Garmin/issues/2
 MYWHOOSH_PREFIX_WINDOWS = "MyWhooshTechnologyService."
 
+logger = logging.getLogger(__name__)
+
 
 def setup_logging(level=logging.DEBUG) -> logging.Logger:
     """Set up logging configuration."""
@@ -442,13 +444,14 @@ def generate_new_filename(fit_file: Path) -> str:
     return f"{fit_file.stem}_{timestamp}.fit"
 
 
-def cleanup_and_save_fit_file(fitfile_location: Path) -> Path:
+def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> Path:
     """
     Clean up the most recent .fit file in a directory and save it
     with a timestamped filename.
 
     Args:
         fitfile_location (Path): The directory containing the .fit files.
+        backup_location (Path): The directory for backup of .fit files.
 
     Returns:
         Path: The path to the newly saved and cleaned .fit file,
@@ -466,13 +469,13 @@ def cleanup_and_save_fit_file(fitfile_location: Path) -> Path:
     logger.debug(f"Found the most recent .fit file: < {fit_file.name} >.")
     new_filename = generate_new_filename(fit_file)
 
-    if not BACKUP_FITFILE_LOCATION.exists():
+    if not backup_location.exists():
         logger.exception(
-            f"The backup directory < {BACKUP_FITFILE_LOCATION} > does not exist. Did you delete it?"
+            f"The backup directory < {backup_location} > does not exist. Did you delete it?"
         )
         return Path()
 
-    new_file_path = BACKUP_FITFILE_LOCATION / new_filename
+    new_file_path = backup_location / new_filename
     logger.info(f"Cleaning up {new_file_path}.")
 
     try:
@@ -545,7 +548,7 @@ def parse_arguments() -> dict:
     return vars(parser.parse_args())
 
 
-def main(args: dict):
+def main():
     """
     Main function to authenticate to Garmin, clean and save the FIT file,
     and upload it to Garmin.
@@ -553,25 +556,24 @@ def main(args: dict):
     Returns:
         None
     """
+    # get command line arguments
+    args = parse_arguments()
+    # Convert the log level from string to the appropriate logging level
+    numeric_level = getattr(logging, args["loglevel"].upper())
+    # setup logging
+    logger = setup_logging(level=numeric_level)
     logger.info("Starting MyWhoosh2Garmin...")
     logger.info(f"FIT file location: < {args['fit_file_location']} >.")
+
+    # ensure packages
+    ensure_packages()
+
     authenticate_to_garmin(args)
-    new_file_path = cleanup_and_save_fit_file(Path(args["fit_file_location"]))
+    new_file_path = cleanup_and_save_fit_file(Path(args["fit_file_location"]), Path(args["backup_location"]))
+    upload_fit_file_to_garmin(new_file_path)
     if new_file_path:
         upload_fit_file_to_garmin(new_file_path)
 
 
 if __name__ == "__main__":
-    # get command line arguments
-    cli_args = parse_arguments()
-    # Convert the log level from string to the appropriate logging level
-    numeric_level = getattr(logging, cli_args["loglevel"].upper())
-    # setup logging
-    logger = setup_logging(level=numeric_level)
-    # ensure packages
-    ensure_packages()
-
-    logger.info("")
-    BACKUP_FITFILE_LOCATION = get_backup_path(cli_args)
-    main(cli_args)
-    logger.info("")
+    main()
