@@ -1,26 +1,24 @@
+# Build system requirements.
 [build-system]
-requires = [
-    "setuptools",
-    "wheel"
-]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages]
-find = { include = ["myWhoosh2Garmin"] }
+requires = ["flit_core >=3.12,<4"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "myWhoosh2Garmin"
-version = "0.1"
-description = "Setup MyWhoosh2Garmin"
+version = "0.1.0"
+description = "Upload fit files from mywhoosh.com to Garmin Connect."
+authors = [
+    { name = "Jay Queue" },
+    { name = "Lowtower", email = "lowtower@lowtower.de" }
+]
 readme = "README.md"
-license-files = ["LICENSE"]
+license = { text = "LICENSE" }
 # Assume Python version >= 3.11
 requires-python = ">=3.11"
 dependencies = [
     "fit_tool",
     "garth",
 ]
-
 [project.optional-dependencies]
 test = [
     "codespell",
@@ -31,9 +29,12 @@ test = [
     "pyflakes",
     "pylint",
 ]
-
 [project.scripts]
 mywhoosh2garmin = "myWhoosh2Garmin:main"
+
+[tool.flit.sdist]
+include = ["README.md", "myWhoosh2Garmin.py"]
+exclude = []
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

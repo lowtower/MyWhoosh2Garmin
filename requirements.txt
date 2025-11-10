@@ -1,2 +1,3 @@
+flit_core
 fit_tool
 garth
