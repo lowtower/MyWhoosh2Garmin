@@ -34,7 +34,7 @@ clean: ## Cleanup
 .PHONY: setup
 setup: ## Setup virtual environment
 	$(PYTHON) -m venv .env
-	.env/bin/pip install --upgrade pip wheel
+	.env/bin/pip install --upgrade pip flit_core
 	.env/bin/pip install --upgrade -r requirements.txt
 	.env/bin/pip install --upgrade -r requirements-dev.txt
 
