@@ -1,3 +1,4 @@
-flit_core
 fit_tool
+flit_core
 garth
+tzlocal

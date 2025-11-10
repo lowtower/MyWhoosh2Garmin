@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Script name: myWhoosh2Garmin.py
+"""Script name: myWhoosh2Garmin.py
+
 Usage: "python3 myWhoosh2Garmin.py"
 Description:    Checks for MyNewActivity-<myWhooshVersion>.fit
                 Adds avg power and heartrade
@@ -15,6 +15,8 @@ Credits:        Garth by matin - for authenticating and uploading with
                 https://github.com/embeddedc/mw2gc
 """
 
+from __future__ import annotations
+
 import argparse
 import importlib.util
 import json
@@ -26,9 +28,15 @@ import sys
 import tkinter as tk
 from datetime import datetime
 from getpass import getpass
+from importlib.util import find_spec
 from pathlib import Path
 from tkinter import filedialog
-from typing import List
+from typing import TYPE_CHECKING
+
+from tzlocal import get_localzone
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 LOG_FILE_PATH = SCRIPT_DIR / "myWhoosh2Garmin.log"
@@ -43,12 +51,31 @@ MYWHOOSH_PREFIX_WINDOWS = "MyWhooshTechnologyService."
 
 logger = logging.getLogger(__name__)
 
+# Check for 'garth'
+if find_spec("garth"):
+    import garth
+    from garth.exc import GarthException, GarthHTTPError
+else:
+    logger.warning("Optional dependency 'garth' is not installed.")
 
-def setup_logging(level=logging.DEBUG) -> logging.Logger:
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# Check for 'fit_tool'
+if find_spec("fit_tool") is not None:
+    from fit_tool.fit_file import FitFile
+    from fit_tool.fit_file_builder import FitFileBuilder
+    from fit_tool.profile.messages.file_id_message import FileIdMessage
+    from fit_tool.profile.messages.lap_message import LapMessage
+    from fit_tool.profile.messages.record_message import (
+        RecordMessage,
+        RecordTemperatureField,
     )
+    from fit_tool.profile.messages.session_message import SessionMessage
+else:
+    logger.warning("Optional dependency 'fit_tool' is not installed.")
+
+
+def setup_logging(level: int = logging.DEBUG) -> logging.Logger:
+    """Set up logging configuration."""
+    logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     my_logger = logging.getLogger(__name__)
     my_logger.setLevel(level)
     file_handler = logging.FileHandler(LOG_FILE_PATH)
@@ -58,7 +85,7 @@ def setup_logging(level=logging.DEBUG) -> logging.Logger:
     return my_logger
 
 
-def load_installed_packages():
+def load_installed_packages() -> set:
     """Load the set of installed packages from a JSON file."""
     if INSTALLED_PACKAGES_FILE.exists():
         with INSTALLED_PACKAGES_FILE.open("r") as f:
@@ -66,13 +93,13 @@ def load_installed_packages():
     return set()
 
 
-def save_installed_packages(installed_packages):
+def save_installed_packages(installed_packages: set) -> None:
     """Save the set of installed packages to a JSON file."""
     with INSTALLED_PACKAGES_FILE.open("w") as f:
         json.dump(list(installed_packages), f)
 
 
-def get_pip_command():
+def get_pip_command() -> list | None:
     """Return the pip command if pip is available."""
     try:
         subprocess.check_call(
@@ -80,70 +107,56 @@ def get_pip_command():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        return [sys.executable, "-m", "pip"]
     except subprocess.CalledProcessError:
         return None
+    return [sys.executable, "-m", "pip"]
 
 
-def install_package(package):
+def install_package(package: str) -> None:
     """Install the specified package using pip."""
     pip_command = get_pip_command()
     if pip_command:
         try:
-            logger.info(f"Installing missing package: {package}.")
-            subprocess.check_call(pip_command + ["install", package])
+            msg = f"Installing missing package: {package}."
+            logger.info(msg)
+            subprocess.check_call([*pip_command, "install", package])
         except subprocess.CalledProcessError as e:
-            logger.exception(f"Error installing < {package} >: {e}.")
+            msg = f"Error installing < {package} >: {e}."
+            logger.exception(msg)
     else:
         logger.debug("pip is not available. Unable to install packages.")
 
 
-def ensure_packages():
+def ensure_packages() -> None:
     """Ensure all required packages are installed and tracked."""
     required_packages = ["garth", "fit_tool"]
     installed_packages = load_installed_packages()
 
     for package in required_packages:
         if package in installed_packages:
-            logger.info(f"Package < {package} > is already tracked as installed.")
+            msg = f"Package < {package} > is already tracked as installed."
+            logger.info(msg)
             continue
 
         if not importlib.util.find_spec(package):
-            logger.info(f"Package < {package} > not found.Attempting to install...")
+            msg = f"Package < {package} > not found.Attempting to install..."
+            logger.info(msg)
             install_package(package)
-
         try:
             __import__(package)
-            logger.info(f"Successfully imported < {package} >.")
+            msg = f"Successfully imported < {package} >."
+            logger.info(msg)
             installed_packages.add(package)
         except ModuleNotFoundError:
-            logger.exception(f"Failed to import < {package} > even after installation.")
+            msg = f"Failed to import < {package} > even after installation."
+            logger.exception(msg)
 
     save_installed_packages(installed_packages)
 
 
-# Imports
-try:
-    import garth
-    from fit_tool.fit_file import FitFile
-    from fit_tool.fit_file_builder import FitFileBuilder
-    from fit_tool.profile.messages.file_creator_message import FileCreatorMessage
-    from fit_tool.profile.messages.file_id_message import FileIdMessage
-    from fit_tool.profile.messages.lap_message import LapMessage
-    from fit_tool.profile.messages.record_message import (
-        RecordMessage,
-        RecordTemperatureField,
-    )
-    from fit_tool.profile.messages.session_message import SessionMessage
-    from garth.exc import GarthException, GarthHTTPError
-except ImportError as e:
-    logger = logging.getLogger(__name__)
-    logger.exception(f"Error importing modules: {e}")
-
-
-def get_fitfile_location() -> Path:
-    """
-    Get the location of the FIT file directory based on the operating system.
+# type: ignore[return]
+def get_fitfile_location() -> Path | None:
+    """Get the location of the FIT file directory based on the operating system.
 
     Returns:
         Path: The path to the FIT file directory.
@@ -151,6 +164,7 @@ def get_fitfile_location() -> Path:
     Raises:
         RuntimeError: If the operating system is unsupported.
         SystemExit: If the target path does not exist.
+
     """
     if os.name == "posix":  # macOS and Linux
         target_path = (
@@ -168,45 +182,36 @@ def get_fitfile_location() -> Path:
         )
         if target_path.is_dir():
             return target_path
-        else:
-            logger.exception(
-                f"Target path < {target_path} > does not exist. Check your MyWhoosh installation."
-            )
-            sys.exit(1)
+        msg = f"Target path < {target_path} > does not exist. Check your MyWhoosh installation."
+        logger.exception(msg)
+        sys.exit(1)
     elif os.name == "nt":  # Windows
         try:
             base_path = Path.home() / "AppData" / "Local" / "Packages"
             for directory in base_path.iterdir():
-                if directory.is_dir() and directory.name.startswith(
-                    MYWHOOSH_PREFIX_WINDOWS
-                ):
-                    target_path = (
-                        directory
-                        / "LocalCache"
-                        / "Local"
-                        / "MyWhoosh"
-                        / "Content"
-                        / "Data"
-                    )
+                if directory.is_dir() and directory.name.startswith(MYWHOOSH_PREFIX_WINDOWS):
+                    target_path = directory / "LocalCache" / "Local" / "MyWhoosh" / "Content" / "Data"
             if target_path.is_dir():
                 return target_path
-            else:
-                raise FileNotFoundError(
-                    f"No valid MyWhoosh directory found in < {target_path} >."
-                )
+            msg = f"No valid MyWhoosh directory found in < {target_path} >."
+            raise FileNotFoundError(msg)
         except FileNotFoundError as e:
-            logger.exception(str(e))
+            msg = f"File was not found: {e}"
+            logger.exception(msg)
         except PermissionError as e:
-            logger.exception(f"Permission denied: {e}")
+            msg = f"Permission denied: {e}"
+            logger.exception(msg)
         except Exception as e:
-            logger.exception(f"Unexpected error: {e}")
+            msg = f"Unexpected error: {e}"
+            logger.exception(msg)
     else:
         logger.exception("Unsupported OS")
         return Path()
 
 
 def get_backup_path(args: dict) -> Path | None:
-    """
+    """Check if a backup path already exists in a JSON file.
+
     This function checks if a backup path already exists in a JSON file.
     If it does, it returns the stored path. If the file does not exist,
     it prompts the user to select a directory via a file dialog, saves
@@ -217,44 +222,45 @@ def get_backup_path(args: dict) -> Path | None:
 
     Returns:
         str or None: The selected backup path or None if no path was selected.
+
     """
     json_file = JSON_FILE_PATH
-    if "backup_location" in args.keys() and args["backup_location"]:
+    if args.get("backup_location"):
         backup_path = Path.cwd() / args["backup_location"]
         if backup_path.is_dir():
-            logger.info(f"Using backup path from command line: < {backup_path} >.")
+            msg = f"Using backup path from command line: < {backup_path} >."
+            logger.info(msg)
             with json_file.open("w") as f:
                 json.dump({"backup_path": backup_path.name}, f)
-            logger.info(f"Backup path saved to < {json_file} >.")
+            msg = f"Backup path saved to < {json_file} >."
+            logger.info(msg)
             return Path(backup_path)
     else:
         if json_file.is_file():
             with json_file.open("r") as f:
                 backup_path = Path(json.load(f).get("backup_path"))
             if backup_path and backup_path.is_dir():
-                logger.info(f"Using backup path from JSON: < {backup_path} >.")
+                msg = f"Using backup path from JSON: < {backup_path} >."
+                logger.info(msg)
                 return Path(backup_path)
-            else:
-                logger.exception("Invalid backup path stored in JSON.")
-                sys.exit(1)
+            logger.exception("Invalid backup path stored in JSON.")
+            sys.exit(1)
         else:
             root = tk.Tk()
             root.withdraw()
-            backup_path = filedialog.askdirectory(
-                title=f"Select {FILE_DIALOG_TITLE} Backup Directory"
-            )
+            backup_path = filedialog.askdirectory(title=f"Select {FILE_DIALOG_TITLE} Backup Directory")
             if not backup_path:
                 logger.info("No directory selected, exiting.")
                 return Path()
             with json_file.open("w") as f:
                 json.dump({"backup_path": backup_path}, f)
-            logger.info(f"Backup path saved to < {json_file} >.")
+            msg = f"Backup path saved to < {json_file} >."
+            logger.info(msg)
     return Path(backup_path)
 
 
-def get_credentials_for_garmin(args: dict):
-    """
-    Take command line arguments or prompt the user for Garmin credentials and authenticate using Garth.
+def get_credentials_for_garmin(args: dict) -> None:
+    """Take command line arguments or prompt the user for Garmin credentials and authenticate using Garth.
 
     Args:
         args (dict): command line arguments, optionally containing username and password
@@ -264,13 +270,9 @@ def get_credentials_for_garmin(args: dict):
 
     Exits:
         Exits with status 1 if authentication fails.
+
     """
-    if (
-        "garmin_username" in args.keys()
-        and args["garmin_username"]
-        and "garmin_password" in args.keys()
-        and args["garmin_password"]
-    ):
+    if "garmin_username" in args and args["garmin_username"] and "garmin_password" in args and args["garmin_password"]:
         username = args["garmin_username"]
         password = args["garmin_password"]
     else:
@@ -279,7 +281,7 @@ def get_credentials_for_garmin(args: dict):
     logger.info("Authenticating...")
     try:
         garth.login(username, password)
-        garth.save(TOKENS_PATH)
+        garth.save(TOKENS_PATH.name)
         logger.info("")
         logger.info("Successfully authenticated!")
     except GarthHTTPError:
@@ -287,11 +289,11 @@ def get_credentials_for_garmin(args: dict):
         sys.exit(1)
 
 
-def authenticate_to_garmin(args: dict):
-    """
-    Authenticate the user to Garmin by checking for existing tokens and
-    resuming the session, or prompting for credentials if no session
-    exists or the session is expired.
+def authenticate_to_garmin(args: dict) -> None:
+    """Authenticate the user to Garmin
+
+    Authenticate the user to Garmin by checking for existing tokens and resuming the session
+     or prompting for credentials if no session exists or the session is expired.
 
     Args:
         args (dict): command line arguments, optionally containing username and password
@@ -301,12 +303,14 @@ def authenticate_to_garmin(args: dict):
 
     Exits:
         Exits with status 1 if authentication fails.
+
     """
     try:
         if TOKENS_PATH.exists():
-            garth.resume(TOKENS_PATH)
             try:
-                logger.info(f"Authenticated as: {garth.client.username}")
+                garth.resume(TOKENS_PATH.name)
+                msg = f"Authenticated as: {garth.client.username}"
+                logger.info(msg)
             except GarthException:
                 logger.info("Session expired. Re-authenticating...")
                 get_credentials_for_garmin(args)
@@ -314,26 +318,26 @@ def authenticate_to_garmin(args: dict):
             logger.info("No existing session. Please log in.")
             get_credentials_for_garmin(args)
     except GarthException as e:
-        logger.info(f"Authentication error: {e}")
+        msg = f"Authentication error: {e}"
+        logger.info(msg)
         sys.exit(1)
 
 
-def calculate_avg(values: iter) -> int:
-    """
-    Calculate the average of a list of values, returning 0 if the list is empty.
+def calculate_avg(values: Sequence[float | int]) -> float:
+    """Calculate the average of a list of values, returning 0 if the list is empty.
 
     Args:
-        values (List[float]): The list of values to average.
+        values (Sequence[float | int]): The list of values to average.
 
     Returns:
         float: The average value or 0 if the list is empty.
+
     """
-    return sum(values) / len(values) if values else 0
+    return sum(values) / len(values) if values else 0.0
 
 
-def append_value(values: List[int], message: object, field_name: str) -> None:
-    """
-    Appends a value to the 'values' list based on a field from 'message'.
+def append_value(values: list[int], message: object, field_name: str) -> None:
+    """Appends a value to the 'values' list based on a field from 'message'.
 
     Args:
         values (List[int]): The list to append the value to.
@@ -342,25 +346,26 @@ def append_value(values: List[int], message: object, field_name: str) -> None:
 
     Returns:
         None
+
     """
     value = getattr(message, field_name, None)
     values.append(value if value else 0)
 
 
-def reset_values() -> tuple[List[int], List[int], List[int], List[int]]:
-    """
-    Resets and returns three empty lists for cadence, power
-    and heart rate values.
+def reset_values() -> tuple[list[int], list[int], list[int], list[int]]:
+    """Resets and returns three empty lists for cadence, power and heart rate values.
 
     Returns:
         tuple: A tuple containing three empty lists
         (laps, cadence, power, and heart rate).
+
     """
     return [], [], [], []
 
 
 def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
-    """
+    """Clean up the FIT file by processing and removing unnecessary fields.
+
     Clean up the FIT file by processing and removing unnecessary fields.
     Also, calculate average values for cadence, power, and heart rate.
 
@@ -370,6 +375,7 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
 
     Returns:
         None
+
     """
     builder = FitFileBuilder()
     fit_file = FitFile.from_file(str(fit_file_path))
@@ -395,11 +401,11 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
             append_value(heart_rate_values, message, "heart_rate")
         if isinstance(message, SessionMessage):
             if not message.avg_cadence:
-                message.avg_cadence = calculate_avg(cadence_values)
+                message.avg_cadence = int(calculate_avg(cadence_values))
             if not message.avg_power:
-                message.avg_power = calculate_avg(power_values)
+                message.avg_power = int(calculate_avg(power_values))
             if not message.avg_heart_rate:
-                message.avg_heart_rate = calculate_avg(heart_rate_values)
+                message.avg_heart_rate = int(calculate_avg(heart_rate_values))
             if not message.avg_speed or message.avg_speed == 0:
                 message.avg_speed = message.total_distance / message.total_timer_time
             lap_values, cadence_values, power_values, heart_rate_values = reset_values()
@@ -409,7 +415,8 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
             message.product = 1836
         builder.add(message)
     builder.build().to_file(str(new_file_path))
-    logger.info(f"Cleaned-up file saved as < {SCRIPT_DIR}/{new_file_path.name} >.")
+    msg = f"Cleaned-up file saved as < {SCRIPT_DIR}/{new_file_path.name} >."
+    logger.info(msg)
 
 
 def get_fit_files(fitfile_location: Path) -> list:
@@ -420,16 +427,22 @@ def get_fit_files(fitfile_location: Path) -> list:
 
     Returns:
         list: list of all .fit files based in the fitfile location
+
     """
-    return [fit_file for fit_file in fitfile_location.glob("*.fit")]
+    return list(fitfile_location.glob("*.fit"))
 
 
 def get_most_recent_fit_file(fitfile_location: Path) -> Path:
+    """Returns the most recent .fit file based on versioning in the filename.
+
+    Args:
+        fitfile_location (Path): The directory containing the .fit files.
+
+    Returns:
+        Path: The path to the most recent .fit file
+
     """
-    Returns the most recent .fit file based
-    on versioning in the filename.
-    """
-    fit_files = fitfile_location.glob("*.fit")
+    fit_files = list(fitfile_location.glob("*.fit"))
     fit_files = sorted(
         fit_files,
         key=lambda f: tuple(map(int, re.findall(r"(\d+)", f.stem.split("-")[-1]))),
@@ -440,14 +453,12 @@ def get_most_recent_fit_file(fitfile_location: Path) -> Path:
 
 def generate_new_filename(fit_file: Path) -> str:
     """Generates a new filename with a timestamp."""
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    timestamp = datetime.now(tz=get_localzone()).strftime("%Y-%m-%d_%H%M%S")
     return f"{fit_file.stem}_{timestamp}.fit"
 
 
 def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> Path:
-    """
-    Clean up the most recent .fit file in a directory and save it
-    with a timestamped filename.
+    """Clean up the most recent .fit file in a directory and save it with a timestamped filename.
 
     Args:
         fitfile_location (Path): The directory containing the .fit files.
@@ -456,65 +467,67 @@ def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> 
     Returns:
         Path: The path to the newly saved and cleaned .fit file,
         or an empty Path if no .fit file is found or if the path is invalid.
+
     """
     fit_file = fitfile_location
     if fitfile_location.is_dir():
-        logger.debug(f"Checking for .fit files in directory: < {fitfile_location} >.")
+        msg = f"Checking for .fit files in directory: < {fitfile_location} >."
+        logger.debug(msg)
         fit_file = get_most_recent_fit_file(fitfile_location)
 
     if not fit_file:
         logger.info("No .fit files found.")
         return Path()
 
-    logger.debug(f"Found the most recent .fit file: < {fit_file.name} >.")
+    msg = f"Found the most recent .fit file: < {fit_file.name} >."
+    logger.debug(msg)
     new_filename = generate_new_filename(fit_file)
 
     if not backup_location.exists():
-        logger.exception(
-            f"The backup directory < {backup_location} > does not exist. Did you delete it?"
-        )
+        msg = f"The backup directory < {backup_location} > does not exist. Did you delete it?"
+        logger.exception(msg)
         return Path()
 
     new_file_path = backup_location / new_filename
-    logger.info(f"Cleaning up {new_file_path}.")
+    msg = f"Cleaning up {new_file_path}."
+    logger.info(msg)
 
     try:
         cleanup_fit_file(fit_file, new_file_path)
-        logger.info(
-            f"Successfully cleaned < {fit_file.name} > and saved it as < {new_file_path.name} >."
-        )
-        return new_file_path
     except Exception as e:
-        logger.exception(f"Failed to process < {fit_file.name} >: {e}.")
+        msg = f"Failed to process < {fit_file.name} >: {e}."
+        logger.exception(msg)
         return Path()
+    msg = f"Successfully cleaned < {fit_file.name} > and saved it as < {new_file_path.name} >."
+    logger.info(msg)
+    return new_file_path
 
 
-def upload_fit_file_to_garmin(new_file_path: Path):
-    """
-    Upload a .fit file to Garmin using the Garth client.
+def upload_fit_file_to_garmin(new_file_path: Path) -> None:
+    """Upload a .fit file to Garmin using the Garth client.
 
     Args:
         new_file_path (Path): The path to the .fit file to upload.
 
     Returns:
         None
+
     """
     try:
         if new_file_path and new_file_path.exists():
-            with open(new_file_path, "rb") as f:
+            with new_file_path.open("rb") as f:
                 uploaded = garth.client.upload(f)
                 logger.debug(uploaded)
         else:
-            logger.info(f"Invalid file path: {new_file_path}.")
+            msg = f"Invalid file path: {new_file_path}."
+            logger.info(msg)
     except GarthHTTPError:
         logger.info("Duplicate activity found on Garmin Connect.")
 
 
 def parse_arguments() -> dict:
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Upload my whoosh fit file(s) from given directory to Garmin"
-    )
+    parser = argparse.ArgumentParser(description="Upload my whoosh fit file(s) from given directory to Garmin")
     parser.add_argument(
         "--fit-file-location",
         metavar="PATH",
@@ -548,14 +561,14 @@ def parse_arguments() -> dict:
     return vars(parser.parse_args())
 
 
-def main():
-    """
-    Main function to authenticate to Garmin, clean and save the FIT file,
-    and upload it to Garmin.
+def main() -> None:
+    """Main function to authenticate to Garmin, clean and save the FIT file and upload it to Garmin.
 
     Returns:
         None
+
     """
+
     # get command line arguments
     args = parse_arguments()
     # Convert the log level from string to the appropriate logging level
@@ -563,7 +576,8 @@ def main():
     # setup logging
     logger = setup_logging(level=numeric_level)
     logger.info("Starting MyWhoosh2Garmin...")
-    logger.info(f"FIT file location: < {args['fit_file_location']} >.")
+    msg = f"FIT file location: < {args['fit_file_location']} >."
+    logger.info(msg)
 
     # ensure packages
     ensure_packages()
