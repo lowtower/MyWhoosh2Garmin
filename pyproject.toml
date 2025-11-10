@@ -17,7 +17,9 @@ license = { text = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = [
     "fit_tool",
+    "flit_core",
     "garth",
+    "tzlocal",
 ]
 [project.optional-dependencies]
 test = [
@@ -92,15 +94,12 @@ ignore = [
     "D415",
     "PLR",  # magic-value-comparison
     "S101",  # assert
-#    "S603",  # subprocess-without-shell-equals-true
-#    "S607",  # start-process-with-partial-path
-#    "T201",  # print
+    "S603",  # subprocess-without-shell-equals-true
     "COM812",  # missing-trailing-comma
-    # to be removed
-    # "FBT001",  # boolean-type-hint-positional-argument
-    # "FBT002",  # boolean-default-value-positional-argument
-    # "PTH",  # PATHLIB
-    # "DTZ",  # DATETIMEZONE
+    # extra
+    "TRY301",  # raise-within-try
+
+
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -145,6 +144,11 @@ warn_unused_configs = true
 warn_no_return = true
 warn_unreachable = false
 enable_error_code = ["ignore-without-code"]
+disable_error_code = ["return"]
+
+[[tool.mypy.overrides]]
+module = ["fit_tool.*"]
+ignore_missing_imports = true
 
 [tool.pycodestyle]
 count = false
@@ -158,9 +162,7 @@ extension-pkg-whitelist = [
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = [
-    "missing-docstring",
-    "too-many-positional-arguments",
-    "use-yield-from"
+    "invalid-name",
 ]
 jobs = 1
 confidence = "HIGH"
@@ -179,7 +181,6 @@ addopts = "-v -ra -s"
 pythonpath = ["./myWhoosh2Garmin.py"]
 testpaths = ["./tests"]
 markers = [
-    "full_run: marks tests as full run (deselect with '-m \"not full_run\"')",
     "debug: debugging tests"
 ]
 

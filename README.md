@@ -1,4 +1,4 @@
-<h1 align="center" id="title">myWhoosh2Garmin</h1>
+<h1 id="title">myWhoosh2Garmin</h1>
 
 <h2>🧐Features</h2>
 
@@ -14,7 +14,7 @@
 
 <p>2. Go to the folder where you downloaded the script in a shell.</p>
 
-- <b>MacOS:</b> Terminal of your choice. 
+- <b>macOS:</b> Terminal of your choice. 
 - <b>Windows:</b> Start > Run > cmd or Start > Run > powershell
 
 <p>3. Install `pipenv` (if not already installed):</p>
@@ -24,7 +24,7 @@ pip3 install pipenv
 or
 pip install pipenv
 ```
-<p>4. Install dependencies in a virtual envioronment:</p>
+<p>4. Install dependencies in a virtual environment:</p>
 
 ```
 pipenv install
@@ -83,9 +83,9 @@ Password:
 <h2>ℹ️ Automation tips</h2> 
 
 What if you want to automate the whole process:
-<h3>MacOS</h3>
+<h3>macOS</h3>
 
-PowerShell on MacOS (Verified & works)
+PowerShell on macOS (Verified & works)
 
 You need Powershell
 
