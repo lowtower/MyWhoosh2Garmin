@@ -34,10 +34,10 @@ jobs:
         python -m pip install --upgrade pip flit_core
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-    - name: Lint (ruff)
-      run: ruff check myWhoosh2Garmin.py
     - name: Lint (pylint)
       run: pylint myWhoosh2Garmin.py
+    - name: Lint (ruff)
+      run: ruff check myWhoosh2Garmin.py
     - name: Check types (mypy)
       run: mypy myWhoosh2Garmin.py
     - name: Check spelling (codespell)
