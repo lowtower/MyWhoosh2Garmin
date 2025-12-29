@@ -3,7 +3,7 @@
 
 Usage: "python3 myWhoosh2Garmin.py"
 Description:    Checks for MyNewActivity-<myWhooshVersion>.fit
-                Adds avg power and heartrade
+                Adds avg power and heartrate
                 Removes temperature
                 Creates backup for the file with a timestamp as a suffix
 Credits:        Garth by matin - for authenticating and uploading with
@@ -139,7 +139,7 @@ def ensure_packages() -> None:
             continue
 
         if not importlib.util.find_spec(package):
-            msg = f"Package < {package} > not found.Attempting to install..."
+            msg = f"Package < {package} > not found. Attempting to install..."
             logger.info(msg)
             install_package(package)
         try:
@@ -432,7 +432,7 @@ def get_fit_files(fitfile_location: Path) -> list:
     return list(fitfile_location.glob("*.fit"))
 
 
-def get_most_recent_fit_file(fitfile_location: Path) -> Path:
+def get_most_recent_fit_file(fitfile_location: Path) -> None | Path:
     """Returns the most recent .fit file based on versioning in the filename.
 
     Args:
@@ -443,12 +443,35 @@ def get_most_recent_fit_file(fitfile_location: Path) -> Path:
 
     """
     fit_files = list(fitfile_location.glob("*.fit"))
-    fit_files = sorted(
-        fit_files,
-        key=lambda f: tuple(map(int, re.findall(r"(\d+)", f.stem.split("-")[-1]))),
-        reverse=True,
-    )
-    return fit_files[0] if fit_files else Path()
+    if fit_files:
+        fit_files = sorted(
+            fit_files,
+            key=lambda f: tuple(map(int, re.findall(r"(\d+)", f.stem.split("-")[-1]))),
+            reverse=True,
+        )
+        return fit_files[0] if fit_files else Path()
+    return None
+
+
+def get_fit_files_in_directory(fitfile_location: Path) -> None | list:
+    """Returns all .fit files in a directory.
+
+    Args:
+        fitfile_location (Path): The directory containing the .fit files.
+
+    Returns:
+        list: a list with the paths to .fit files
+
+    """
+    fit_files = list(fitfile_location.glob("*.fit"))
+    if fit_files:
+        fit_files = sorted(
+            fit_files,
+            key=lambda f: tuple(map(int, re.findall(r"(\d+)", f.stem.split("-")[-1]))),
+            reverse=True,
+        )
+        return fit_files if fit_files else [Path()]
+    return None
 
 
 def generate_new_filename(fit_file: Path) -> str:
@@ -457,7 +480,38 @@ def generate_new_filename(fit_file: Path) -> str:
     return f"{fit_file.stem}_{timestamp}.fit"
 
 
-def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> Path:
+def cleanup_and_save_fit_files(fitfile_location: Path, backup_location: Path) -> None | list:
+    """Clean up the all .fit files in a directory and save them with a timestamped filename.
+
+    Args:
+        fitfile_location (Path): The directory containing the .fit files.
+        backup_location (Path): The directory for backup of .fit files.
+
+    Returns:
+        list: list of paths to the newly saved and cleaned .fit files,
+        or None if no .fit file is found or if the path is invalid.
+
+    """
+    fit_files_clean: list[None | Path] = []
+    if not fitfile_location.is_dir():
+        if fitfile_location.is_file():
+            fit_files_clean = [cleanup_and_save_fit_file(fitfile_location, backup_location)]
+        else:
+            logger.info("Not a .fit file.")
+            return None
+    else:
+        msg = f"Checking for .fit files in directory: < {fitfile_location} >."
+        logger.debug(msg)
+        fit_files = get_fit_files_in_directory(fitfile_location)
+        if not fit_files:
+            logger.info("No .fit files found.")
+            return None
+        for fit_file in fit_files:
+            fit_files_clean.append(cleanup_and_save_fit_file(fit_file, backup_location))
+    return fit_files_clean
+
+
+def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> None | Path:
     """Clean up the most recent .fit file in a directory and save it with a timestamped filename.
 
     Args:
@@ -466,60 +520,55 @@ def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> 
 
     Returns:
         Path: The path to the newly saved and cleaned .fit file,
-        or an empty Path if no .fit file is found or if the path is invalid.
+        or None if no .fit file is found or if the path is invalid.
 
     """
-    fit_file = fitfile_location
-    if fitfile_location.is_dir():
-        msg = f"Checking for .fit files in directory: < {fitfile_location} >."
-        logger.debug(msg)
-        fit_file = get_most_recent_fit_file(fitfile_location)
-
-    if not fit_file:
-        logger.info("No .fit files found.")
-        return Path()
-
-    msg = f"Found the most recent .fit file: < {fit_file.name} >."
+    msg = f"Processing .fit file: < {fitfile_location.name} >."
     logger.debug(msg)
-    new_filename = generate_new_filename(fit_file)
+    new_filename = generate_new_filename(fitfile_location)
 
     if not backup_location.exists():
         msg = f"The backup directory < {backup_location} > does not exist. Did you delete it?"
         logger.exception(msg)
         return Path()
+    # create "uploaded" directory
+    uploaded_path = backup_location / "uploaded"
+    uploaded_path.mkdir(exist_ok=True)
 
     new_file_path = backup_location / new_filename
-    msg = f"Cleaning up {new_file_path}."
+    msg = f"Cleaning up {fitfile_location.name}."
     logger.info(msg)
 
     try:
-        cleanup_fit_file(fit_file, new_file_path)
+        cleanup_fit_file(fitfile_location, new_file_path)
     except Exception as e:
-        msg = f"Failed to process < {fit_file.name} >: {e}."
+        msg = f"Failed to process < {fitfile_location.name} >: {e}."
         logger.exception(msg)
         return Path()
-    msg = f"Successfully cleaned < {fit_file.name} > and saved it as < {new_file_path.name} >."
+    msg = f"Successfully cleaned < {fitfile_location.name} > and saved it as < {new_file_path.name} >."
     logger.info(msg)
+    # move processed file
+    fitfile_location.rename(uploaded_path / fitfile_location.name)
     return new_file_path
 
 
-def upload_fit_file_to_garmin(new_file_path: Path) -> None:
+def upload_fit_file_to_garmin(file_path: Path) -> None:
     """Upload a .fit file to Garmin using the Garth client.
 
     Args:
-        new_file_path (Path): The path to the .fit file to upload.
+        file_path (Path): The path to the .fit file to upload.
 
     Returns:
         None
 
     """
     try:
-        if new_file_path and new_file_path.exists():
-            with new_file_path.open("rb") as f:
+        if file_path and file_path.exists():
+            with file_path.open("rb") as f:
                 uploaded = garth.client.upload(f)
                 logger.debug(uploaded)
         else:
-            msg = f"Invalid file path: {new_file_path}."
+            msg = f"Invalid file path: {file_path}."
             logger.info(msg)
     except GarthHTTPError:
         logger.info("Duplicate activity found on Garmin Connect.")
@@ -583,10 +632,10 @@ def main() -> None:
     ensure_packages()
 
     authenticate_to_garmin(args)
-    new_file_path = cleanup_and_save_fit_file(Path(args["fit_file_location"]), Path(args["backup_location"]))
-    upload_fit_file_to_garmin(new_file_path)
-    if new_file_path:
-        upload_fit_file_to_garmin(new_file_path)
+    new_file_paths = cleanup_and_save_fit_files(Path(args["fit_file_location"]), Path(args["backup_location"]))
+    if new_file_paths:
+        for new_file_path in new_file_paths:
+            upload_fit_file_to_garmin(new_file_path)
 
 
 if __name__ == "__main__":
