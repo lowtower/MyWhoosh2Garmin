@@ -349,7 +349,7 @@ def append_value(values: list[int], message: object, field_name: str) -> None:
 
     """
     value = getattr(message, field_name, None)
-    values.append(value if value else 0)
+    values.append(value or 0)
 
 
 def reset_values() -> tuple[list[int], list[int], list[int], list[int]]:
@@ -470,7 +470,7 @@ def get_fit_files_in_directory(fitfile_location: Path) -> None | list:
             key=lambda f: tuple(map(int, re.findall(r"(\d+)", f.stem.split("-")[-1]))),
             reverse=True,
         )
-        return fit_files if fit_files else [Path()]
+        return fit_files or [Path()]
     return None
 
 

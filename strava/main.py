@@ -1,5 +1,4 @@
-"""
-Strava API client for downloading virtual ride activities with 'MyWhoosh' in name.
+"""Strava API client for downloading virtual ride activities with 'MyWhoosh' in name.
 
 Handles authentication, session management, and tracks downloaded activities in SQLite.
 """
@@ -7,12 +6,10 @@ Handles authentication, session management, and tracks downloaded activities in 
 import json
 import os
 import sqlite3
-import requests
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import List, Optional
 from urllib.parse import parse_qs, urlparse
 
+import requests
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from requests import Session
@@ -20,7 +17,7 @@ from requests import Session
 
 class StravaSettings(BaseSettings):
     """Configuration settings for Strava API client."""
-    
+
     client_id: str = Field(..., validation_alias="CLIENT_ID")
     client_secret: str = Field(..., validation_alias="CLIENT_SECRET")
     token_url: str = "https://www.strava.com/oauth/token"
@@ -35,7 +32,7 @@ class StravaSettings(BaseSettings):
 
 class TokenData(BaseModel):
     """Model for storing Strava API token data."""
-    
+
     access_token: str
     refresh_token: str
     expires_at: datetime
@@ -50,7 +47,7 @@ class TokenData(BaseModel):
 
 class ActivityDetails(BaseModel):
     """Model representing Strava activity details."""
-    
+
     id: int
     name: str
     start_date: datetime
@@ -59,7 +56,7 @@ class ActivityDetails(BaseModel):
 
 class ActivityDatabase:
     """Database handler for tracking downloaded activities."""
-    
+
     def __init__(self, db_file: str):
         self.conn = sqlite3.connect(db_file)
         self._create_table()
@@ -98,10 +95,10 @@ class ActivityDatabase:
 
 class StravaAuth:
     """Handles Strava OAuth2 authentication and token management."""
-    
+
     def __init__(self, settings: StravaSettings):
         self.settings = settings
-        self.token_data: Optional[TokenData] = None
+        self.token_data: TokenData | None = None
         self.session = Session()
         self._initialize_session()
 
@@ -180,7 +177,7 @@ class StravaAuth:
     def _load_tokens(self) -> bool:
         """Load tokens from storage file."""
         if os.path.exists(self.settings.token_file):
-            with open(self.settings.token_file, "r") as f:
+            with open(self.settings.token_file) as f:
                 raw_data = json.load(f)
             self.token_data = TokenData.from_json(raw_data)
             return True
@@ -206,7 +203,7 @@ class StravaAuth:
 
 class CookieManager:
     """Manages HTTP cookies for persistent session."""
-    
+
     def __init__(self, cookie_file: str):
         self.cookie_file = cookie_file
         self.session = Session()
@@ -214,7 +211,7 @@ class CookieManager:
     def load_cookies(self) -> None:
         """Load cookies from storage file."""
         if os.path.exists(self.cookie_file):
-            with open(self.cookie_file, "r") as f:
+            with open(self.cookie_file) as f:
                 cookies = json.load(f)
             for name, value in cookies.items():
                 self.session.cookies.set(name, value)
@@ -222,7 +219,7 @@ class CookieManager:
 
 class ActivityDownloader:
     """Handles activity file downloads with Chrome-like headers."""
-    
+
     CHROME_HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -268,8 +265,7 @@ class ActivityDownloader:
 
         filename = f"activity_{activity_id}_original.fit"
         with open(filename, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            f.writelines(response.iter_content(chunk_size=8192))
 
         self.db.mark_downloaded(activity_id)
         print(f"✅ Downloaded {filename}")
@@ -278,12 +274,12 @@ class ActivityDownloader:
 
 class StravaClient:
     """Main client for interacting with Strava API."""
-    
+
     def __init__(self, auth: StravaAuth, downloader: ActivityDownloader):
         self.auth = auth
         self.downloader = downloader
 
-    def get_filtered_activities(self) -> List[ActivityDetails]:
+    def get_filtered_activities(self) -> list[ActivityDetails]:
         """Retrieve filtered list of activities."""
         self.auth.authenticate()
 
@@ -311,7 +307,7 @@ class StravaClient:
 
 class StravaClientBuilder:
     """Builder pattern implementation for StravaClient."""
-    
+
     def __init__(self):
         self.settings = StravaSettings()
         self.auth = StravaAuth(self.settings)
@@ -373,7 +369,7 @@ if __name__ == "__main__":
         print(f"• Total processed: {len(all_activities)}")
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"❌ Error: {e!s}")
     finally:
         if client_builder:
             client_builder.database.close()
