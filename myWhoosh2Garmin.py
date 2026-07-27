@@ -432,7 +432,7 @@ def get_fit_files(fitfile_location: Path) -> list:
     return list(fitfile_location.glob("*.fit"))
 
 
-def get_most_recent_fit_file(fitfile_location: Path) -> None | Path:
+def get_most_recent_fit_file(fitfile_location: Path) -> Path | None:
     """Returns the most recent .fit file based on versioning in the filename.
 
     Args:
@@ -453,7 +453,7 @@ def get_most_recent_fit_file(fitfile_location: Path) -> None | Path:
     return None
 
 
-def get_fit_files_in_directory(fitfile_location: Path) -> None | list:
+def get_fit_files_in_directory(fitfile_location: Path) -> list | None:
     """Returns all .fit files in a directory.
 
     Args:
@@ -480,7 +480,7 @@ def generate_new_filename(fit_file: Path) -> str:
     return f"{fit_file.stem}_{timestamp}.fit"
 
 
-def cleanup_and_save_fit_files(fitfile_location: Path, backup_location: Path) -> None | list:
+def cleanup_and_save_fit_files(fitfile_location: Path, backup_location: Path) -> list | None:
     """Clean up the all .fit files in a directory and save them with a timestamped filename.
 
     Args:
@@ -492,7 +492,7 @@ def cleanup_and_save_fit_files(fitfile_location: Path, backup_location: Path) ->
         or None if no .fit file is found or if the path is invalid.
 
     """
-    fit_files_clean: list[None | Path] = []
+    fit_files_clean: list[Path | None] = []
     if not fitfile_location.is_dir():
         if fitfile_location.is_file():
             fit_files_clean = [cleanup_and_save_fit_file(fitfile_location, backup_location)]
@@ -511,7 +511,7 @@ def cleanup_and_save_fit_files(fitfile_location: Path, backup_location: Path) ->
     return fit_files_clean
 
 
-def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> None | Path:
+def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> Path | None:
     """Clean up the most recent .fit file in a directory and save it with a timestamped filename.
 
     Args:
