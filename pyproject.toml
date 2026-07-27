@@ -98,8 +98,7 @@ ignore = [
     "COM812",  # missing-trailing-comma
     # extra
     "TRY301",  # raise-within-try
-
-
+    "CPY001", # missing-copyright-notice
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
