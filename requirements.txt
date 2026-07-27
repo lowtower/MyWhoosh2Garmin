@@ -1,4 +1,4 @@
 fit_tool
 flit_core
-garth  @ git+https://github.com/lowtower/garth@main
+garth
 tzlocal
