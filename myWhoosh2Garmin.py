@@ -183,7 +183,7 @@ def get_fitfile_location() -> Path | None:
         if target_path.is_dir():
             return target_path
         msg = f"Target path < {target_path} > does not exist. Check your MyWhoosh installation."
-        logger.exception(msg)
+        logger.error(msg)
         sys.exit(1)
     elif os.name == "nt":  # Windows
         try:
@@ -205,7 +205,7 @@ def get_fitfile_location() -> Path | None:
             msg = f"Unexpected error: {e}"
             logger.exception(msg)
     else:
-        logger.exception("Unsupported OS")
+        logger.error("Unsupported OS")
         return Path()
 
 
@@ -243,7 +243,7 @@ def get_backup_path(args: dict) -> Path | None:
                 msg = f"Using backup path from JSON: < {backup_path} >."
                 logger.info(msg)
                 return Path(backup_path)
-            logger.exception("Invalid backup path stored in JSON.")
+            logger.error("Invalid backup path stored in JSON.")
             sys.exit(1)
         else:
             root = tk.Tk()
@@ -529,7 +529,7 @@ def cleanup_and_save_fit_file(fitfile_location: Path, backup_location: Path) -> 
 
     if not backup_location.exists():
         msg = f"The backup directory < {backup_location} > does not exist. Did you delete it?"
-        logger.exception(msg)
+        logger.error(msg)
         return Path()
     # create "uploaded" directory
     uploaded_path = backup_location / "uploaded"
