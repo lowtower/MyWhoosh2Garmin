@@ -411,8 +411,12 @@ def cleanup_fit_file(fit_file_path: Path, new_file_path: Path) -> None:
             lap_values, cadence_values, power_values, heart_rate_values = reset_values()
         if isinstance(message, FileIdMessage):
             # Override manufacturer/product but keep other fields
+            #   Garmin Edge 1000: product_id: 1836
+            #   Garmin Edge 1030: product_id: 2713
+            #   Garmin Edge 1040: product_id: 3843
+            #   Garmin Edge 1050: product_id: 4440
             message.manufacturer = 1
-            message.product = 1836
+            message.product = 4440
         builder.add(message)
     builder.build().to_file(str(new_file_path))
     msg = f"Cleaned-up file saved as < {SCRIPT_DIR}/{new_file_path.name} >."
